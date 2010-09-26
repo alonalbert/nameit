@@ -3,9 +3,7 @@ package com.aalbert.vuze.nameit;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import sun.security.x509.AlgorithmId;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -28,23 +26,23 @@ public class EpisodeInfo {
   private static final String MASTER_URL = "http://www.thetvdb.com";
   private static final String MIRROR_URL = MASTER_URL + "/api/" + API_KEY + "/mirrors.xml";
 
-  private static int MIRROR_TYPE_XML = 1;
-  private static int MIRROR_TYPE_ZIP = 4;
+  private static final int MIRROR_TYPE_XML = 1;
 
   private static final XPath xpath = XPathFactory.newInstance().newXPath();
   private static final Random random = new Random(new Date().getTime());
 
-  private static Map<String, String> fixShowNames = new HashMap<String, String>();
+  private static final Map<String, String> fixShowNames = new HashMap<String, String>();
 
   private String showName;
   private String episodeName;
 
   static {
-    fixShowNames.put("Tosh 0", "Tosh.0");
+    fixShowNames.put("tosh 0", "Tosh.0");
+    fixShowNames.put("shit my dad says", "$#*! My Dad Says");
   }
 
   public EpisodeInfo(String showName, int seasonNum, int episodeNum) {
-    String fixed = fixShowNames.get(showName);
+    String fixed = fixShowNames.get(showName.toLowerCase());
     if (fixed != null) {
       showName = fixed;
     }
@@ -90,19 +88,18 @@ public class EpisodeInfo {
 
       final String seriesId = series.getElementsByTagName("seriesid").item(0).getTextContent();
 
-      uri = mirror + "/api/B007F67F2D4B5FF3/series/" + seriesId + "/all";
+      uri = String.format("%s/api/B007F67F2D4B5FF3/series/%s/default/%d/%d",
+                          mirror, seriesId, seasonNum, episodeNum);
       document = documentBuilder.parse(uri);
-      final String xpath =
-          String.format("/Data/Episode[SeasonNumber=%d and EpisodeNumber=%d]/EpisodeName",
-          seasonNum, episodeNum);
-      nodes = (NodeList) EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.NODESET);
+      final String xpath = "/Data/Episode/EpisodeName/text()";
+      String name = (String) EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.STRING);
 
-      if (nodes.getLength() != 1) {
+      if (name == null) {
         // TODO(aalbert): log
         return;
       }
 
-      episodeName = nodes.item(0).getTextContent();
+      episodeName = name;
     } catch (Exception e) {
       System.out.println(e);
       // TODO(aalbert): log
