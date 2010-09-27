@@ -5,6 +5,7 @@ import org.gudy.azureus2.plugins.disk.DiskManagerFileInfo;
 import org.gudy.azureus2.plugins.download.Download;
 import org.gudy.azureus2.plugins.download.savelocation.SaveLocationChange;
 import org.gudy.azureus2.plugins.download.savelocation.SaveLocationManager;
+import org.gudy.azureus2.plugins.logging.LoggerChannel;
 
 import java.io.File;
 import java.util.regex.Matcher;
@@ -18,9 +19,11 @@ class MySaveLocationManager
 
   private static final String REGEX = "(.*)\\.[Ss](\\d+)[Ee](\\d+)\\..*\\.(mkv|avi|mpg|mp4|wmv)";
   private static final Pattern pattern = Pattern.compile(REGEX);
+  private final LoggerChannel logger;
   private final SaveLocationManager oldManager;
 
-  public MySaveLocationManager(SaveLocationManager oldManager) {
+  public MySaveLocationManager(LoggerChannel logger, SaveLocationManager oldManager) {
+    this.logger = logger;
     this.oldManager = oldManager;
   }
 
@@ -30,13 +33,12 @@ class MySaveLocationManager
   }
 
   public SaveLocationChange onCompletion(Download download, boolean for_move, boolean on_event) {
-    final SaveLocationChange change = createNewSaveLocationChange(download);
+    final SaveLocationChange change = createNewSaveLocationChange(download, for_move);
     SaveLocationChange oldChange = oldManager.onCompletion(download, for_move, on_event);
-    if (oldChange == null) {
-      oldChange = new SaveLocationChange();
-    }
     if (change != null) {
-      change.torrent_location = oldChange.torrent_location;
+      if (oldChange != null) {
+        change.torrent_location = oldChange.torrent_location;
+      }
       return change;
     } else {
       return oldChange;
@@ -47,7 +49,7 @@ class MySaveLocationManager
     return oldManager.onRemoval(download, for_move, on_event);
   }
 
-  private SaveLocationChange createNewSaveLocationChange(Download download) {
+  private SaveLocationChange createNewSaveLocationChange(Download download, boolean for_move) {
     final File file = getEpisodeFile(download);
     if (file == null) {
       return null;
@@ -62,8 +64,8 @@ class MySaveLocationManager
     final int episodeNum = episodeMatch.getEpisodeNum();
     final String ext = episodeMatch.getExt();
 
-    final EpisodeInfo episodeInfo = new EpisodeInfo(showName, seasonNum, episodeNum);
-    final String episodeName = episodeInfo.getEpisodeName();
+    final EpisodeInfo episodeInfo = new EpisodeInfo(logger, showName, seasonNum, episodeNum);
+    String episodeName = episodeInfo.getEpisodeName();
     showName = episodeInfo.getShowName();
 
     SaveLocationChange change = oldManager.onCompletion(download, false, false);
@@ -75,13 +77,24 @@ class MySaveLocationManager
       change = new SaveLocationChange();
       parent = file.getParent();
     }
+    showName = getValidFileName(showName);
+    episodeName = getValidFileName(episodeName);
     change.download_location = new File(parent + "/TV", showName);
-    change.download_name =
-        String.format("%02d-%02d %s.%s", seasonNum, episodeNum, episodeName, ext);
+    String downloadName = String.format("%02d-%02d %s.%s", seasonNum, episodeNum, episodeName, ext);
+    change.download_name = downloadName;
     change.torrent_name =
         String.format("%s %02d-%02d %s", showName, seasonNum, episodeNum, episodeName);
 
+    final File location = change.download_location;
+    if (for_move) {
+      logger.log(String.format(
+          "Moving %s -> %s/%s", file.getName(), location.getAbsolutePath(), downloadName));
+    }
     return change;
+  }
+
+  private String getValidFileName(String name) {
+    return name.replaceAll("[?:/*\"<>|\\\\]", "_");
   }
 
   private EpisodeMatch getEpisodeMatch(String fileName) {

@@ -1,6 +1,7 @@
 // Copyright 2010 Google. All Rights Reserved.
 package com.aalbert.vuze.nameit;
 
+import org.gudy.azureus2.plugins.logging.LoggerChannel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -39,9 +40,10 @@ public class EpisodeInfo {
   static {
     fixShowNames.put("tosh 0", "Tosh.0");
     fixShowNames.put("shit my dad says", "$#*! My Dad Says");
+    fixShowNames.put("penn and teller bullshit", "Penn & Teller: Bullshit!");
   }
 
-  public EpisodeInfo(String showName, int seasonNum, int episodeNum) {
+  public EpisodeInfo(LoggerChannel logger, String showName, int seasonNum, int episodeNum) {
     String fixed = fixShowNames.get(showName.toLowerCase());
     if (fixed != null) {
       showName = fixed;
@@ -63,7 +65,7 @@ public class EpisodeInfo {
       nodes = (NodeList) xpath.evaluate("/Data/Series", document, XPathConstants.NODESET);
 
       if (nodes.getLength() == 0) {
-        // TODO(aalbert): log
+        logger.log("No shows found for " + uri);
         return;
       }
 
@@ -82,6 +84,7 @@ public class EpisodeInfo {
           }
         }
         if (series == null) {
+          logger.log("No shows found for " + uri);
           return;
         }
       }
@@ -95,14 +98,13 @@ public class EpisodeInfo {
       String name = (String) EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.STRING);
 
       if (name == null) {
-        // TODO(aalbert): log
+        logger.log("No shows found for " + uri);
         return;
       }
 
       episodeName = name;
     } catch (Exception e) {
-      System.out.println(e);
-      // TODO(aalbert): log
+      logger.log("Exception processing '" + showName + " " + seasonNum + "/" + episodeNum, e);
     }
   }
 
