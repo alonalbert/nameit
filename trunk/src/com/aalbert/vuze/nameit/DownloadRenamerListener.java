@@ -38,6 +38,7 @@ class MySaveLocationManager
     if (change != null) {
       if (oldChange != null) {
         change.torrent_location = oldChange.torrent_location;
+        change.torrent_name = oldChange.torrent_name;
       }
       return change;
     } else {
@@ -82,8 +83,6 @@ class MySaveLocationManager
     change.download_location = new File(parent + "/TV", showName);
     String downloadName = String.format("%02d-%02d %s.%s", seasonNum, episodeNum, episodeName, ext);
     change.download_name = downloadName;
-    change.torrent_name =
-        String.format("%s %02d-%02d %s", showName, seasonNum, episodeNum, episodeName);
 
     final File location = change.download_location;
     if (for_move) {
