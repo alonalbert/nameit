@@ -1,6 +1,7 @@
 // Copyright 2010 Google. All Rights Reserved.
 package com.aalbert.vuze.nameit;
 
+import com.sun.org.apache.xpath.internal.NodeSet;
 import org.gudy.azureus2.plugins.logging.LoggerChannel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -36,6 +37,9 @@ public class EpisodeInfo {
 
   private String showName;
   private String episodeName;
+  private String showImageUrl;
+  private String episodeImageUrl;
+  private Map<String, String> art = new HashMap<String, String>();
 
   static {
     fixShowNames.put("tosh 0", "Tosh.0");
@@ -91,10 +95,31 @@ public class EpisodeInfo {
 
       final String seriesId = series.getElementsByTagName("seriesid").item(0).getTextContent();
 
+      String xpath;
+      // get series image
+      uri = String.format("%s/api/B007F67F2D4B5FF3/series/%s/en.xml", mirror, seriesId);
+      document = documentBuilder.parse(uri);
+      xpath = "/Data/Series/poster/text()";
+      showImageUrl = String.format(
+          "%s/banners/%s",
+          mirror,
+          EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.STRING));
+
+      // get all artwork
+      uri = String.format("%s/api/B007F67F2D4B5FF3/series/%s/banners.xml", mirror, seriesId);
+      document = documentBuilder.parse(uri);
+      xpath = "/Banners/Banner/BannerPath";
+      NodeList banners = (NodeList) EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.NODESET);
+      for (int i = 0; i < banners.getLength(); i++) {
+        final String path = banners.item(i).getTextContent();
+        art.put(path.replace('/', '_'), String.format("%s/banners/%s", mirror, path));
+      }
+
+      // get episode data
       uri = String.format("%s/api/B007F67F2D4B5FF3/series/%s/default/%d/%d",
                           mirror, seriesId, seasonNum, episodeNum);
       document = documentBuilder.parse(uri);
-      final String xpath = "/Data/Episode/EpisodeName/text()";
+      xpath = "/Data/Episode/EpisodeName/text()";
       String name = (String) EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.STRING);
 
       if (name == null) {
@@ -103,6 +128,12 @@ public class EpisodeInfo {
       }
 
       episodeName = name;
+
+      xpath = "/Data/Episode/filename/text()";
+      episodeImageUrl = String.format(
+          "%s/banners/%s",
+          mirror,
+          EpisodeInfo.xpath.evaluate(xpath, document, XPathConstants.STRING));
     } catch (Exception e) {
       logger.log("Exception processing '" + showName + " " + seasonNum + "/" + episodeNum, e);
     }
@@ -112,8 +143,20 @@ public class EpisodeInfo {
     return showName;
   }
 
+  public String getShowImageUrl() {
+    return showImageUrl;
+  }
+
   public String getEpisodeName() {
     return episodeName;
+  }
+
+  public String getEpisodeImageUrl() {
+    return episodeImageUrl;
+  }
+
+  public Map<String, String> getArt() {
+    return art;
   }
 
   private String getMirror(DocumentBuilder documentBuilder) {
